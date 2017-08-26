@@ -1,6 +1,6 @@
-baseurl = "https://example.com/"
+baseurl = "https://hughparsonage.netlify.com/"
 title = "Academic"
-copyright = "&copy; 2016 Your Name"
+copyright = "&copy; 2017 Hugh Parsonage"
 theme = "hugo-academic"
 enableEmoji = true
 footnotereturnlinkcontents = "<sup>^</sup>"
@@ -143,7 +143,7 @@ defaultContentLanguageInSubdir = false
   [[params.social]]
     icon = "github"
     icon_pack = "fa"
-    link = "//github.com/gcushen"
+    link = "//github.com/hughparsonage"
 
 
 # Navigation Links
