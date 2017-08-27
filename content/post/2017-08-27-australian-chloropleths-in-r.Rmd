@@ -1,0 +1,438 @@
+---
+title: "Australian chloropleths in R"
+author: "Hugh Parsonage"
+date: 2017-06-17
+categories: ["R"]
+tags: ["R Markdown", "plot", "regression"]
+output:
+  html_document:
+    toc: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE)
+```
+
+```{r loadPackages, message=FALSE}
+library(scales)
+library(ggplot2)
+library(ggthemes)
+library(broom)
+library(testthat)
+library(htmltools)
+library(leaflet)
+library(viridis)
+library(dtplyr)
+library(dplyr)
+library(magrittr)
+library(data.table)
+library(jsonlite)
+library(rgdal)
+library(htmlwidgets)  # saving leaflet maps
+```
+
+This post was inspired by Peter Ellis's tutorial: https://ellisp.github.io/blog/2017/06/04/military-gdp.
+
+# Creating maps of Australia
+Australia is a particularly challenging country to map.
+Australia is very large, highly urbanized, with cities far away from each other.
+
+In R, there are three steps in creating an interactive map of Australia:
+
+1. Install and attach the `ASGS` package.
+2. Join your data to the `data` slot of the relevant shapefile
+3. Pipe this shapefile to `leaflet` and `addPolygons` to it.
+
+I'll take you through these steps by demonstrating how to plot the population of Australia by SA2. 
+Population is not terribly interesting, but the data is easily accessible.
+
+## Accessing the shapefiles using the `ASGS` package
+I wrote the `ASGS` package to store the shapefiles from the ABS in package form for convenience and reproducibility.
+To install, download and install from Dropbox using the following chunk.[^1]
+
+[^1]: I would appreciate any advice in how better to distribute the package. Please file an issue at https://github.com/HughParsonage/ASGS/
+
+```{r loadASGS}
+if (!requireNamespace("ASGS", quietly = TRUE)) {
+  message("Attempting install of ASGS (500 MB) from Dropbox. ",
+          "This should take some minutes to download.")
+  tempf <- tempfile(fileext = ".tar.gz")
+  download.file(url = "https://dl.dropbox.com/s/5za8ozzp39dce5p/ASGS_0.1.0.tar.gz",
+                destfile = tempf)
+  install.packages(tempf, repos = NULL, type = "source")
+}
+library(ASGS)
+```
+
+
+## Joining the data
+
+First, we need the data itself. Naturally, this will ordinarily be a task in itself. But the goal is simple: you need a value for each polygon (each SA2 in this case). 
+
+```{r ERP_by_SA2}
+ERP_by_SA2 <- fread("https://raw.githubusercontent.com/HughParsonage/ABS-data/master/Estimated-Resident-Population-SA2-2016.txt")
+ERP_by_SA2[, SA2_MAIN11 := factor(ASGS_2011)]
+```
+
+## Static plot methods
+As an apostrophe, I'll briefly mention the static plot methods available. 
+They're reliable, useful when verifying or debugging, and often surprisingly sufficient.
+
+### Using `plot()`
+You can plot shapefiles immediately using the `plot` method.
+
+```{r bare-SA2-chloropleth-base-R}
+plot(SA2_2011)
+```
+
+And it is fairly straightforward to create a chloropleth by adding colours. The following function simply applies palettes given values. Use `palette_v` 
+
+```{r palette_v}
+#' @return Viridis palette of x by quantile (decile by default).
+palette_v <- function(x, n = 10) {
+  input <- data.table(x = x)
+  input[, order := 1:.N]
+  input[, decile := ntile(x, n)]
+  
+  colortbl <- data.table(decile = 1:10,
+                         colour = viridis(10))
+  
+  colortbl[input, on = "decile"] %>%
+    setorder(order) %>%
+    .[["colour"]]
+}
+
+pal_v <- colorNumeric(palette = viridis(10),
+                      domain = NULL)
+```
+
+```{r SA2_2011_join}
+# Copy shapefile and join with ERP_by_SA2 to create
+# a column to fill by.
+SA2_2011_join <- 
+  SA2_2011
+
+SA2_2011_join@data <-
+  inner_join(SA2_2011_join@data, ERP_by_SA2, by = "SA2_MAIN11") %>%
+  # + 1 in case any 0sqm regions create NaNs
+  mutate(Density = Value / ((ALBERS_SQM + 1) / 1e6),
+         Density_Decile = ntile(Density, 10))
+```
+
+```{r chloropleth-base-R-Population}
+plot(SA2_2011_join,
+     col = palette_v(SA2_2011_join@data$Value),
+     main = "Population by SA2")
+```
+
+```{r chloropleth-base-R-PopulationDensity}
+plot(SA2_2011_join,
+     col = palette_v(SA2_2011_join@data$Density_Decile),
+     main = "Population density by SA2")
+```
+
+Maps so produced can often be surprisingly 'sufficient'. I often run `dev.copy2pdf(file = "my-map.pdf", width = 200, height = 150)` to 
+create a PDF to look closer at the cities. It's not quite as natural or rich in features as mapps produced via `leaflet()` are below, but it's simple, very reliable,
+and looks great when you zoom in.
+
+If you're creating a single, static map to be included in a PDF, I would run `dev.copy2pdf` here, pound LaTeX with `trim` and `clip` options to `\includegraphics` for about 15 minutes, then `TikZ` the rest. I doubt what I would produce would be worse than doing it the canonical way.
+
+However, if the statistic for creating the colours in the chloropleth are likely to change, or you need more flexibility, you should use `ggplot2` with the `geom_polygon` layer to create the map.
+
+### Using `ggplot2`
+Unlike `plot()` and `leaflet()` you can't just magically pipe shapefiles into `ggplot()`, you must first `broom::tidy` them. Slightly disconcertingly, you need to specify the key using the rownames of the tidied shapefile. However, once you overcome that hurdle, you have the immense power of `ggplot2` to work with.
+
+```{r ggplot-population}
+SA2_population_by_id <- ERP_by_SA2[, id := as.character(1:.N - 1)]
+
+SA2_2011 %>%
+  tidy %>%
+  setDT %>%
+  SA2_population_by_id[., on = "id"] %>%
+  ggplot(aes(x = long, y = lat, group = group, fill = Value)) + 
+  geom_polygon() + 
+  scale_fill_viridis("Population", labels = comma) + 
+  coord_map() +
+  theme_map()
+```
+
+Nonetheless, the urban areas are hidden, and rural areas are ridiculously overemphasized.
+
+## Interactive plots using leaflet
+Because of the challenges of mapping in Australia,
+interactive chloropleths have considerable appeal.
+Leaflet through its eponymous R package offers this feature.
+
+Like with `plot`, `leaflet()` accepts shapefiles as inputs, and you can pass shapefiles immediately.
+However, for the SA2 shapefiles, this results in hefty HTML files. 
+On my machine, RStudio creaked under their weight.
+
+(You should run the following two chunks. I've set `eval=FALSE` to reduce the file size of this page from 250 MB to 25 MB!)
+
+```{r leaflet-Population, eval=FALSE}
+SA2_2011_join %>%
+  leaflet %>%
+  addPolygons
+```
+
+The default settings of leaflet are not suitable for presentation; however, leaflet offers enough flexibility to create elegant maps:
+
+```{r leaflet-Population-viridis, eval=FALSE}
+SA2_2011_join %>%
+  leaflet %>%
+  addPolygons(stroke = TRUE,
+              opacity = 1,
+              weight = 1,  # the border thickness / pixels
+              color = "white",
+              fillColor = ~pal_v(SA2_2011_join@data$Density_Decile), 
+              fillOpacity = 1)
+```
+
+However, the file is too large (125 MB on my computer) to be shared easily.  `library(ASGS)` offers `SA2_2011_simple`, a simplified version (20\%) of `SA2_2011` produced from the GUI at http://mapshaper.org/.
+
+Further compression of the HTML file can be achieved by reducing the precision of the coordinates.
+In contrast to simplifying the shapefile (which reduces the detail of borders), reducing the precision does not change the shape of borders much, but translates them east or north.
+
+The ABS's standard uses a nominal precision of about 1 mm, which is vastly more precise than needed for SA2 boundaries. 
+By reducing the precision, the raw HTML (which lists the coordinates of every vertex) will have literally use fewer characters to mark each coordinate, shaving off a considerable chunk of the size of your page, improving performance.
+
+I chose a precision of 0.0001 which means the borders can be translated at most 10 metres. Such a modest loss of precision, even for detailed places like inner Sydney and Melbourne, had no visible effect.
+
+The file in the package was created simply  by running (again in http://mapshaper.org/)
+
+```bash
+mapshaper -o precision=0.0001 format=topojson out.json
+```
+
+The resulting chloropleth is 15 MB, which I suspect cannot
+be improved. (Reducing the precision further resulted in unsightly overlaps at Walsh Bay.)
+
+```{r signif_comma}
+#' @param x
+#' @param digits
+#' @return For values over 1000, a comma()'d version of x to \code{digits} significant figures;  otherwise, 
+#' x to \code{digits} significant places.
+#' 
+#' Using \code{comma(signif(x, 2))} would produce '120,000.0' instead of '120,000'.
+signif_comma <- function(x, digits = 2) {
+  y <- signif(x, digits = digits)
+  out <- y
+  out[log10(x) > 3] <- scales::comma(y[log10(x) > 3])
+  out
+}
+
+expect_equal(signif_comma(c(1.2, 12, 1200, 12000, 120000)),
+             c("1.2", "12", "1,200", "12,000", "120,000"))
+```
+
+```{r SA2_2011_simple_-chloropleth-leaflet, fig.width=10}
+# Copy shapefile and join with ERP_by_SA2 to create
+# a column to fill by.
+
+SA2_2011_simple %>%
+  leaflet %>%
+  addPolygons(stroke = TRUE,
+              opacity = 1,
+              weight = 1,  # the border thickness / pixels
+              color = "black",
+              fillColor = ~pal_v(SA2_2011_join@data$Density_Decile), 
+              fillOpacity = 1,
+              label = lapply(paste0("<b>", 
+                                    SA2_2011_join@data$SA2_NAME11, ":",
+                                    "</b><br>",
+                                    signif_comma(SA2_2011_join@data$Density, 2),
+                                    "/km²"),
+                             HTML),
+              highlightOptions = highlightOptions(weight = 2,
+                                                  color = "white",
+                                                  opacity = 1,
+                                                  dashArray = "",
+                                                  bringToFront = TRUE))
+```
+
+This provides a lightweight, interactive chloropleth, as required. 
+
+
+
+
+## Just give me the code
+
+```{r, united, eval=FALSE}
+## ----setup, include=FALSE------------------------------------------------
+knitr::opts_chunk$set(collapse = TRUE)
+
+## ----loadPackages, message=FALSE-----------------------------------------
+library(scales)
+library(ggplot2)
+library(ggthemes)
+library(broom)
+library(testthat)
+library(htmltools)
+library(leaflet)
+library(viridis)
+library(dtplyr)
+library(dplyr)
+library(magrittr)
+library(data.table)
+library(jsonlite)
+library(rgdal)
+library(htmlwidgets)  # saving leaflet maps
+
+## ----loadASGS------------------------------------------------------------
+if (!requireNamespace("ASGS", quietly = TRUE)) {
+  message("Attempting install of ASGS (500 MB) from Dropbox. ",
+          "This should take some minutes to download.")
+  tempf <- tempfile(fileext = ".zip")
+  download.file(url = "https://www.dropbox.com/s/acn5v30yco4jrx7/ASGS_0.0.3.zip?dl=1",
+                destfile = tempf)
+  install.packages(tempf, repos = NULL)
+}
+library(ASGS)
+
+## ----ERP_by_SA2----------------------------------------------------------
+ERP_by_SA2 <- fread("https://raw.githubusercontent.com/HughParsonage/ABS-data/master/Estimated-Resident-Population-SA2-2016.txt")
+ERP_by_SA2[, SA2_MAIN11 := factor(ASGS_2011)]
+
+## ----bare-SA2-chloropleth-base-R-----------------------------------------
+plot(SA2_2011)
+
+## ----palette_v-----------------------------------------------------------
+#' @return Viridis palette of x by quantile (decile by default).
+palette_v <- function(x, n = 10) {
+  input <- data.table(x = x)
+  input[, order := 1:.N]
+  input[, decile := ntile(x, n)]
+  
+  colortbl <- data.table(decile = 1:10,
+                         colour = viridis(10))
+  
+  colortbl[input, on = "decile"] %>%
+    setorder(order) %>%
+    .[["colour"]]
+}
+
+pal_v <- colorNumeric(palette = viridis(10),
+                      domain = NULL)
+
+## ----SA2_2011_join-------------------------------------------------------
+# Copy shapefile and join with ERP_by_SA2 to create
+# a column to fill by.
+SA2_2011_join <- 
+  SA2_2011
+
+SA2_2011_join@data <-
+  inner_join(SA2_2011_join@data, ERP_by_SA2, by = "SA2_MAIN11") %>%
+  # + 1 in case any 0sqm regions create NaNs
+  mutate(Density = Value / ((ALBERS_SQM + 1) / 1e6),
+         Density_Decile = ntile(Density, 10))
+
+## ----chloropleth-base-R-Population---------------------------------------
+plot(SA2_2011_join,
+     col = palette_v(SA2_2011_join@data$Value),
+     main = "Population by SA2")
+
+## ----chloropleth-base-R-PopulationDensity--------------------------------
+plot(SA2_2011_join,
+     col = palette_v(SA2_2011_join@data$Density_Decile),
+     main = "Population density by SA2")
+
+## ----ggplot-population---------------------------------------------------
+SA2_population_by_id <- ERP_by_SA2[, id := as.character(1:.N - 1)]
+
+SA2_2011 %>%
+  tidy %>%
+  setDT %>%
+  SA2_population_by_id[., on = "id"] %>%
+  ggplot(aes(x = long, y = lat, group = group, fill = Value)) + 
+  geom_polygon() + 
+  scale_fill_viridis("Population", labels = comma) + 
+  coord_map() +
+  theme_map()
+
+## ----leaflet-Population, eval=FALSE--------------------------------------
+## SA2_2011_join %>%
+##   leaflet %>%
+##   addPolygons
+
+## ----leaflet-Population-viridis, eval=FALSE------------------------------
+## SA2_2011_join %>%
+##   leaflet %>%
+##   addPolygons(stroke = TRUE,
+##               opacity = 1,
+##               weight = 1,  # the border thickness / pixels
+##               color = "white",
+##               fillColor = ~pal_v(SA2_2011_join@data$Density_Decile),
+##               fillOpacity = 1)
+
+## ----signif_comma--------------------------------------------------------
+#' @param x
+#' @param digits
+#' @return For values over 1000, a comma()'d version of x to \code{digits} significant figures;  otherwise, 
+#' x to \code{digits} significant places.
+#' 
+#' Using \code{comma(signif(x, 2))} would produce '120,000.0' instead of '120,000'.
+signif_comma <- function(x, digits = 2) {
+  y <- signif(x, digits = digits)
+  out <- y
+  out[log10(x) > 3] <- scales::comma(y[log10(x) > 3])
+  out
+}
+
+expect_equal(signif_comma(c(1.2, 12, 1200, 12000, 120000)),
+             c("1.2", "12", "1,200", "12,000", "120,000"))
+
+## ----SA2_2011_simple_-chloropleth-leaflet, fig.width=10------------------
+# Copy shapefile and join with ERP_by_SA2 to create
+# a column to fill by.
+
+SA2_2011_simple %>%
+  leaflet %>%
+  addPolygons(stroke = TRUE,
+              opacity = 1,
+              weight = 1,  # the border thickness / pixels
+              color = "black",
+              fillColor = ~pal_v(SA2_2011_join@data$Density_Decile), 
+              fillOpacity = 1,
+              label = lapply(paste0("<b>", 
+                                    SA2_2011_join@data$SA2_NAME11, ":",
+                                    "</b><br>",
+                                    signif_comma(ERP_by_SA2$, 2),
+                                    "/km²"),
+                             HTML),
+              highlightOptions = highlightOptions(weight = 2,
+                                                  color = "white",
+                                                  opacity = 1,
+                                                  dashArray = "",
+                                                  bringToFront = TRUE))
+## ----smoothed-chloropleth, fig.width=10
+y <- smooth_shapefile(shapefile = SA2_2011,
+                      data_by_id = ERP_by_SA2,
+                      id = "SA2_MAIN11",
+                      var2smooth = "Value",
+                      coalesce.to = as.integer(mean(ERP_by_SA2$Value, na.rm = TRUE)), 
+                      k = 10)
+
+pal_v <- colorNumeric(palette = viridis::viridis(6), domain = NULL)
+
+SA2_2011_simple %>%
+  leaflet() %>%
+  addPolygons(fillOpacity = 1,
+              stroke = TRUE,
+              weight = 1,
+              color = "black",
+              fillColor = ~pal_v(y),
+              opacity = 1,
+              smoothFactor = 2,
+              label = lapply(paste0("<strong>",
+                                    as.character(SA2_2011@data$SA2_NAME11), ":",
+                                    "</strong><br>",
+                                    signif_comma(as.numeric(ERP_by_SA2$Value))),
+                             HTML),
+              highlightOptions = highlightOptions(weight = 2,
+                                                  color = "white",
+                                                  opacity = 1,
+                                                  dashArray = "",
+                                                  bringToFront = TRUE))
+
+
+```
