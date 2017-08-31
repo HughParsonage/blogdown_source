@@ -1,0 +1,80 @@
+---
+title: Census 2016 packages
+author: Hugh Parsonage
+date: '2017-08-31'
+slug: census-2016-packages
+categories: []
+tags: []
+---
+
+I've released two packages to access summary tables provided by the ABS.
+The first `Census2016` is on CRAN and offers a limited set of data to comply with CRAN requirements.
+
+A more substantial release is provided by the package `Census2016.DataPack` which contains hundreds of tables from the ABS Census 2016 data packs.
+
+## `Census2016.DataPack`
+
+### Motivation
+
+The obvious motivation is that the 2016 census data packs hold a wealth of useful information that will be useful for researchers for years.
+Bundling this data into a package improves the reproducibility of research,  as well as making it easier for researchers to *quickly* start analysis.
+
+But I think the best way to explain my motivation for producing this package is to show you a variable name from Table G38 of the data pack:
+
+> `Se_d_r_or_t_h_t_Tot_NofB_0_ib`
+
+There are two problems with the data packs:
+
+1. The variable names are arcane.
+2. The data is not tidy: subtotals and subvariables lurk among the variable names.
+
+In summary, the goals of `Census2016.DataPack` are:
+
+1. To tidy the data so that the tables are normalized.
+2. To provide at all costs readable variable names.
+3. To use predictable table names and structure to support autocompletion.
+
+### Installation
+
+The package is not available on CRAN as it is far too large. You can install the package by running
+
+```{r Installation}
+if (!requireNamespace("Census2016.DataPack", quietly = TRUE)) {
+  install.packages("Census2016.DataPack", 
+                   repos = "https://hughparsonage.github.io/drat/", 
+                   type = "source")
+}
+```
+
+and attaching it in the usual way
+
+```{r attachCensus2016DataPack}
+library(Census2016.DataPack)
+```
+
+I'll also attach some other packages for analysis and prettiness.
+
+```{r loadPackages}
+library(magrittr)
+library(data.table)
+library(hutils)
+```
+
+
+### Usage 
+
+As described in the motivation, all the tables have predictable, easy-to-read table names.
+The drawback is that some of their names are very long.
+This is unfortunate but in my view well worth it: it's trivial to adopt your own name for your work, but far more difficult to misread or be confused by a table.
+
+For example, the number of persons in each `SA3` by age and sex is just 
+
+```{r sa1-age-sex}
+SA3__Age_Sex %>%
+  data.kable
+```
+
+The real advantage of this package comes when using RStudio. 
+Generally, you know what geographical area you need data for.
+With that, you just start typing the three-letter code for the area (`SA3` in this case), 
+wait for RStudio to access the internal data base, then select the most appropriate table that appears in the drop-down menu.
