@@ -1,5 +1,5 @@
 baseurl = "https://hughparsonage.netlify.com/"
-title = "Academic"
+title = "Hugh Parsonage"
 copyright = "&copy; 2017 Hugh Parsonage"
 theme = "hugo-academic"
 enableEmoji = true
