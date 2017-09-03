@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>R on Academic</title>
+    <link>/tags/r/</link>
+    <description>Recent content in R on Academic</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <copyright>&amp;copy; 2017 Hugh Parsonage</copyright>
+    <lastBuildDate>Thu, 31 Aug 2017 00:00:00 +0000</lastBuildDate>
+    <atom:link href="/tags/r/" rel="self" type="application/rss+xml" />
+    
+    <item>
+      <title>Census 2016 packages</title>
+      <link>/post/census-2016-packages/</link>
+      <pubDate>Thu, 31 Aug 2017 00:00:00 +0000</pubDate>
+      
+      <guid>/post/census-2016-packages/</guid>
+      <description>&lt;p&gt;I’ve released two packages to access summary tables provided by the ABS. The first &lt;code&gt;Census2016&lt;/code&gt; is on CRAN and offers a limited set of data to comply with CRAN requirements.&lt;/p&gt;
+&lt;p&gt;A more substantial release is provided by the package &lt;code&gt;Census2016.DataPack&lt;/code&gt; which contains hundreds of tables from the ABS Census 2016 data packs.&lt;/p&gt;
+&lt;div id=&#34;census2016.datapack&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;&lt;code&gt;Census2016.DataPack&lt;/code&gt;&lt;/h2&gt;
+&lt;div id=&#34;motivation&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Motivation&lt;/h3&gt;
+&lt;p&gt;The obvious motivation is that the 2016 census data packs hold a wealth of useful information that will be useful for researchers for years. Bundling this data into a package improves the reproducibility of research, as well as making it easier for researchers to &lt;em&gt;quickly&lt;/em&gt; start analysis.&lt;/p&gt;
+&lt;p&gt;But I think the best way to explain my motivation for producing this package is to show you a variable name from Table G38 of the data pack:&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;code&gt;Se_d_r_or_t_h_t_Tot_NofB_0_ib&lt;/code&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;There are two problems with the data packs:&lt;/p&gt;
+&lt;ol style=&#34;list-style-type: decimal&#34;&gt;
+&lt;li&gt;The variable names are arcane.&lt;/li&gt;
+&lt;li&gt;The data is not tidy: subtotals and subvariables lurk among the variable names.&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;In summary, the goals of &lt;code&gt;Census2016.DataPack&lt;/code&gt; are:&lt;/p&gt;
+&lt;ol style=&#34;list-style-type: decimal&#34;&gt;
+&lt;li&gt;To tidy the data so that the tables are normalized.&lt;/li&gt;
+&lt;li&gt;To provide at all costs readable variable names.&lt;/li&gt;
+&lt;li&gt;To use predictable table names and structure to support autocompletion.&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/div&gt;
+&lt;div id=&#34;installation&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Installation&lt;/h3&gt;
+&lt;p&gt;The package is not available on CRAN as it is far too large. You can install the package by running&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;if (!requireNamespace(&amp;quot;Census2016.DataPack&amp;quot;, quietly = TRUE)) {
+  install.packages(&amp;quot;Census2016.DataPack&amp;quot;, 
+                   repos = &amp;quot;https://hughparsonage.github.io/drat/&amp;quot;, 
+                   type = &amp;quot;source&amp;quot;)
+}&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;and attaching it in the usual way&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;library(Census2016.DataPack)&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;I’ll also attach some other packages for analysis and prettiness.&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;library(magrittr)
+library(data.table)&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;## Warning: package &amp;#39;data.table&amp;#39; was built under R version 3.4.1&lt;/code&gt;&lt;/pre&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;library(hutils)&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;div id=&#34;usage&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Usage&lt;/h3&gt;
+&lt;p&gt;As described in the motivation, all the tables have predictable, easy-to-read table names. The drawback is that some of their names are very long. This is unfortunate but in my view well worth it: it’s trivial to adopt your own name for your work, but far more difficult to misread or be confused by a table.&lt;/p&gt;
+&lt;p&gt;For example, the number of persons in each &lt;code&gt;SA3&lt;/code&gt; by age and sex is just&lt;/p&gt;
+&lt;pre class=&#34;r&#34;&gt;&lt;code&gt;SA3__Age_Sex %&amp;gt;%
+  data.kable&lt;/code&gt;&lt;/pre&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr class=&#34;header&#34;&gt;
+&lt;th align=&#34;left&#34;&gt;SA3_NAME16&lt;/th&gt;
+&lt;th align=&#34;left&#34;&gt;Age&lt;/th&gt;
+&lt;th align=&#34;left&#34;&gt;Sex&lt;/th&gt;
+&lt;th align=&#34;right&#34;&gt;persons&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr class=&#34;odd&#34;&gt;
+&lt;td align=&#34;left&#34;&gt;Queanbeyan&lt;/td&gt;
+&lt;td align=&#34;left&#34;&gt;0-4&lt;/td&gt;
+&lt;td align=&#34;left&#34;&gt;F&lt;/td&gt;
+&lt;td align=&#34;right&#34;&gt;1,731&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr class=&#34;even&#34;&gt;
+&lt;td align=&#34;left&#34;&gt;Queanbeyan&lt;/td&gt;
+&lt;td align=&#34;left&#34;&gt;0-4&lt;/td&gt;
+&lt;td align=&#34;left&#34;&gt;M&lt;/td&gt;
+&lt;td align=&#34;right&#34;&gt;1,998&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr class=&#34;odd&#34;&gt;
+&lt;td align=&#34;left&#34;&gt;Queanbeyan&lt;/td&gt;
+&lt;td align=&#34;left&#34;&gt;5-14&lt;/td&gt;
+&lt;td align=&#34;left&#34;&gt;F&lt;/td&gt;
+&lt;td align=&#34;right&#34;&gt;3,664&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr class=&#34;even&#34;&gt;
+&lt;td align=&#34;left&#34;&gt;Queanbeyan&lt;/td&gt;
+&lt;td align=&#34;left&#34;&gt;5-14&lt;/td&gt;
+&lt;td align=&#34;left&#34;&gt;M&lt;/td&gt;
+&lt;td align=&#34;right&#34;&gt;3,848&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr class=&#34;odd&#34;&gt;
+&lt;td align=&#34;left&#34;&gt;Queanbeyan&lt;/td&gt;
+&lt;td align=&#34;left&#34;&gt;15-19&lt;/td&gt;
+&lt;td align=&#34;left&#34;&gt;F&lt;/td&gt;
+&lt;td align=&#34;right&#34;&gt;1,727&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr class=&#34;even&#34;&gt;
+&lt;td align=&#34;left&#34;&gt;Queanbeyan&lt;/td&gt;
+&lt;td align=&#34;left&#34;&gt;15-19&lt;/td&gt;
+&lt;td align=&#34;left&#34;&gt;M&lt;/td&gt;
+&lt;td align=&#34;right&#34;&gt;1,866&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr class=&#34;odd&#34;&gt;
+&lt;td align=&#34;left&#34;&gt;…&lt;/td&gt;
+&lt;td align=&#34;left&#34;&gt;…&lt;/td&gt;
+&lt;td align=&#34;left&#34;&gt;…&lt;/td&gt;
+&lt;td align=&#34;right&#34;&gt;…&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr class=&#34;even&#34;&gt;
+&lt;td align=&#34;left&#34;&gt;No usual address (OT)&lt;/td&gt;
+&lt;td align=&#34;left&#34;&gt;65-74&lt;/td&gt;
+&lt;td align=&#34;left&#34;&gt;F&lt;/td&gt;
+&lt;td align=&#34;right&#34;&gt;6&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr class=&#34;odd&#34;&gt;
+&lt;td align=&#34;left&#34;&gt;No usual address (OT)&lt;/td&gt;
+&lt;td align=&#34;left&#34;&gt;65-74&lt;/td&gt;
+&lt;td align=&#34;left&#34;&gt;M&lt;/td&gt;
+&lt;td align=&#34;right&#34;&gt;6&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr class=&#34;even&#34;&gt;
+&lt;td align=&#34;left&#34;&gt;No usual address (OT)&lt;/td&gt;
+&lt;td align=&#34;left&#34;&gt;75-84&lt;/td&gt;
+&lt;td align=&#34;left&#34;&gt;F&lt;/td&gt;
+&lt;td align=&#34;right&#34;&gt;0&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr class=&#34;odd&#34;&gt;
+&lt;td align=&#34;left&#34;&gt;No usual address (OT)&lt;/td&gt;
+&lt;td align=&#34;left&#34;&gt;75-84&lt;/td&gt;
+&lt;td align=&#34;left&#34;&gt;M&lt;/td&gt;
+&lt;td align=&#34;right&#34;&gt;0&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr class=&#34;even&#34;&gt;
+&lt;td align=&#34;left&#34;&gt;No usual address (OT)&lt;/td&gt;
+&lt;td align=&#34;left&#34;&gt;85+&lt;/td&gt;
+&lt;td align=&#34;left&#34;&gt;F&lt;/td&gt;
+&lt;td align=&#34;right&#34;&gt;0&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr class=&#34;odd&#34;&gt;
+&lt;td align=&#34;left&#34;&gt;No usual address (OT)&lt;/td&gt;
+&lt;td align=&#34;left&#34;&gt;85+&lt;/td&gt;
+&lt;td align=&#34;left&#34;&gt;M&lt;/td&gt;
+&lt;td align=&#34;right&#34;&gt;0&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;The real advantage of this package comes when using RStudio. Generally, you know what geographical area you need data for. With that, you just start typing the three-letter code for the area (&lt;code&gt;SA3&lt;/code&gt; in this case), wait for RStudio to access the internal data base, then select the most appropriate table that appears in the drop-down menu.&lt;/p&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;div id=&#34;extensions&#34; class=&#34;section level2&#34;&gt;
+&lt;h2&gt;Extensions&lt;/h2&gt;
+&lt;div id=&#34;new-data-in-later-releases&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;New data in later releases&lt;/h3&gt;
+&lt;p&gt;New data in the November release will be included in a later release.&lt;/p&gt;
+&lt;/div&gt;
+&lt;div id=&#34;select-particular-variables-out-of-order&#34; class=&#34;section level3&#34;&gt;
+&lt;h3&gt;Select particular variables out-of-order&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;Something like &lt;code&gt;SELECT(Sex, HoursHousekeeping, Age) %FROM% SA2&lt;/code&gt; as a promise.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;see_question&lt;/code&gt; like in &lt;code&gt;Census2016&lt;/code&gt; (currently including this would endanger the 100 MB limit).&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+</description>
+    </item>
+    
+  </channel>
+</rss>
