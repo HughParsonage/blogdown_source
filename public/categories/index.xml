@@ -2,7 +2,7 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>Categories on Academic</title>
-    <link>https://hughparsonage.netlify.com/categories/</link>
+    <link>/categories/</link>
     <description>Recent content in Categories on Academic</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
@@ -11,10 +11,10 @@
     
     <item>
       <title>R</title>
-      <link>https://hughparsonage.netlify.com/categories/r/</link>
+      <link>/categories/r/</link>
       <pubDate>Sat, 17 Jun 2017 00:00:00 +0000</pubDate>
       
-      <guid>https://hughparsonage.netlify.com/categories/r/</guid>
+      <guid>/categories/r/</guid>
       <description></description>
     </item>
     

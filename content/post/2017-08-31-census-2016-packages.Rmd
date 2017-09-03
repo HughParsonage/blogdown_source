@@ -78,3 +78,14 @@ The real advantage of this package comes when using RStudio.
 Generally, you know what geographical area you need data for.
 With that, you just start typing the three-letter code for the area (`SA3` in this case), 
 wait for RStudio to access the internal data base, then select the most appropriate table that appears in the drop-down menu.
+
+## Extensions
+
+### New data in later releases
+
+New data in the November release will be included in a later release.
+
+### Select particular variables out-of-order
+
+* Something like `SELECT(Sex, HoursHousekeeping, Age) %FROM% SA2` as a promise. 
+* `see_question` like in `Census2016` (currently including this would endanger the 100 MB limit).
